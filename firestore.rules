@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Standalone schema validation helper for LegalDocument
+    function isValidLegalDocument(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.docType in ['CONTRACT', 'MOTION', 'BRIEF', 'MEMO', 'DEMAND_LETTER', 'NDA', 'OTHER'] &&
+             data.jurisdiction is string && data.jurisdiction.size() >= 1 && data.jurisdiction.size() <= 100 &&
+             (!('matterRef' in data) || (data.matterRef is string && data.matterRef.size() <= 100)) &&
+             data.content is string && data.content.size() <= 200000 &&
+             data.status in ['DRAFT', 'UNDER_REVIEW', 'COMPLIANT', 'FLAGGED'] &&
+             (!('complianceScore' in data) || (data.complianceScore is int && data.complianceScore >= 0 && data.complianceScore <= 100)) &&
+             (!('lastAuditSummary' in data) || (data.lastAuditSummary is string && data.lastAuditSummary.size() <= 2000));
+    }
+
+    // Standalone schema validation helper for AuditRecord
+    function isValidAuditRecord(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.documentId is string && data.documentId.size() <= 128 &&
+             data.complianceScore is int && data.complianceScore >= 0 && data.complianceScore <= 100 &&
+             data.overallAssessment is string && data.overallAssessment.size() <= 5000 &&
+             data.riskLevel in ['LOW', 'MEDIUM', 'HIGH'] &&
+             data.issues is list && data.issues.size() <= 50 && (data.issues.size() == 0 || data.issues[0] is string) &&
+             data.citations is list && data.citations.size() <= 50 && (data.citations.size() == 0 || data.citations[0] is string) &&
+             data.recommendations is list && data.recommendations.size() <= 50 && (data.recommendations.size() == 0 || data.recommendations[0] is string);
+    }
+
+    match /users/{userId} {
+      match /documents/{documentId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         isValidId(documentId) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidLegalDocument(incoming()) &&
+                         incoming().keys().hasAll(['userId', 'title', 'docType', 'jurisdiction', 'content', 'status', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'docType', 'jurisdiction', 'matterRef', 'content', 'status', 'complianceScore', 'lastAuditSummary', 'createdAt', 'updatedAt']);
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(documentId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidLegalDocument(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'docType', 'jurisdiction', 'matterRef', 'content', 'status', 'complianceScore', 'lastAuditSummary', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(documentId);
+
+        match /audits/{auditId} {
+          allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+          allow create: if isSignedIn() &&
+                           request.auth.uid == userId &&
+                           incoming().userId == request.auth.uid &&
+                           incoming().documentId == documentId &&
+                           isValidId(auditId) &&
+                           incoming().createdAt is timestamp &&
+                           incoming().createdAt <= request.time &&
+                           isValidAuditRecord(incoming()) &&
+                           incoming().keys().hasAll(['userId', 'documentId', 'complianceScore', 'overallAssessment', 'riskLevel', 'issues', 'citations', 'recommendations', 'createdAt']) &&
+                           incoming().keys().hasOnly(['userId', 'documentId', 'complianceScore', 'overallAssessment', 'riskLevel', 'issues', 'citations', 'recommendations', 'createdAt']);
+
+          allow update, delete: if isSignedIn() && request.auth.uid == userId && isValidId(auditId);
+        }
+      }
+    }
+  }
+}

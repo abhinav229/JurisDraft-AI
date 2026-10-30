@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "LegalDocument": {
+      "title": "Legal Document",
+      "description": "A legal brief, contract, motion, or memorandum authored by an attorney",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique identifier of the authoring lawyer"
+        },
+        "title": {
+          "type": "string",
+          "description": "Document title (e.g. Motion for Summary Judgment)"
+        },
+        "docType": {
+          "type": "string",
+          "description": "Type of legal document",
+          "enum": ["CONTRACT", "MOTION", "BRIEF", "MEMO", "DEMAND_LETTER", "NDA", "OTHER"]
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "Target legal jurisdiction (e.g. US Federal, California, New York, Delaware, General US)"
+        },
+        "matterRef": {
+          "type": "string",
+          "description": "Client matter or file reference number"
+        },
+        "content": {
+          "type": "string",
+          "description": "Full drafted text and clauses of the legal document"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the document draft",
+          "enum": ["DRAFT", "UNDER_REVIEW", "COMPLIANT", "FLAGGED"]
+        },
+        "complianceScore": {
+          "type": "integer",
+          "description": "AI case law compliance score (0-100)"
+        },
+        "lastAuditSummary": {
+          "type": "string",
+          "description": "Concise summary of the latest AI case law audit"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of document creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update"
+        }
+      },
+      "required": ["userId", "title", "docType", "jurisdiction", "content", "status", "createdAt", "updatedAt"]
+    },
+    "AuditRecord": {
+      "title": "Compliance Audit Record",
+      "description": "AI analysis record evaluating compliance with applicable case law and statutory requirements",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique identifier of the owning user"
+        },
+        "documentId": {
+          "type": "string",
+          "description": "Parent document identifier"
+        },
+        "complianceScore": {
+          "type": "integer",
+          "description": "Score from 0 to 100"
+        },
+        "overallAssessment": {
+          "type": "string",
+          "description": "Executive legal summary of compliance findings"
+        },
+        "riskLevel": {
+          "type": "string",
+          "description": "Overall risk level",
+          "enum": ["LOW", "MEDIUM", "HIGH"]
+        },
+        "issues": {
+          "type": "array",
+          "description": "List of flagged legal risks and discrepancies"
+        },
+        "citations": {
+          "type": "array",
+          "description": "List of verified case law citations supporting or challenging the draft"
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "List of actionable drafting recommendations"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when audit was performed"
+        }
+      },
+      "required": ["userId", "documentId", "complianceScore", "overallAssessment", "riskLevel", "issues", "citations", "recommendations", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/documents/{documentId}": {
+      "schema": "LegalDocument",
+      "description": "Collection of legal documents belonging to a lawyer"
+    },
+    "/users/{userId}/documents/{documentId}/audits/{auditId}": {
+      "schema": "AuditRecord",
+      "description": "History of AI case law compliance audits conducted for a document"
+    }
+  }
+}

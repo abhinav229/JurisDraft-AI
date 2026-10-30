@@ -1,0 +1,6 @@
+{
+  "name": "JurisDraft",
+  "description": "AI-powered legal document drafting and case law compliance assistant for attorneys",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

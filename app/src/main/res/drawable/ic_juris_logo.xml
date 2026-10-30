@@ -1,0 +1,69 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Deep Navy Circular Background Badge -->
+    <path
+        android:fillColor="#0D1B2A"
+        android:pathData="M54,4 C26.386,4 4,26.386 4,54 C4,81.614 26.386,104 54,104 C81.614,104 104,81.614 104,54 C104,26.386 81.614,4 54,4 Z" />
+
+    <!-- Gold Accent Ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C5A059"
+        android:strokeWidth="2"
+        android:pathData="M54,10 C29.699,10 10,29.699 10,54 C10,78.301 29.699,98 54,98 C78.301,98 98,78.301 98,54 C98,29.699 78.301,10 54,10 Z" />
+
+    <!-- Scale Central Pillar Top Finial -->
+    <path
+        android:fillColor="#E5C158"
+        android:pathData="M54,24 A3,3 0 1,1 54,18 A3,3 0 1,1 54,24 Z" />
+
+    <!-- Scale Central Vertical Column -->
+    <path
+        android:fillColor="#C5A059"
+        android:pathData="M52.5,24 L55.5,24 L55.5,76 L52.5,76 Z" />
+
+    <!-- Scale Horizontal Balance Beam -->
+    <path
+        android:fillColor="#C5A059"
+        android:pathData="M26,34 L82,34 L82,37 L26,37 Z" />
+
+    <!-- Center Fulcrum Pivot -->
+    <path
+        android:fillColor="#E5C158"
+        android:pathData="M54,38.5 A4,4 0 1,1 54,30.5 A4,4 0 1,1 54,38.5 Z" />
+
+    <!-- Left Scale Suspension Cords -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#DFC076"
+        android:strokeWidth="1.5"
+        android:pathData="M27,37 L19,53 M27,37 L35,53" />
+
+    <!-- Left Scale Pan -->
+    <path
+        android:fillColor="#C5A059"
+        android:pathData="M16,53 C16,53 18,63 27,63 C36,63 38,53 38,53 Z" />
+
+    <!-- Right Scale Suspension Cords -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#DFC076"
+        android:strokeWidth="1.5"
+        android:pathData="M81,37 L73,53 M81,37 L89,53" />
+
+    <!-- Right Scale Pan -->
+    <path
+        android:fillColor="#C5A059"
+        android:pathData="M70,53 C70,53 72,63 81,63 C90,63 92,53 92,53 Z" />
+
+    <!-- Base Pedestal Steps -->
+    <path
+        android:fillColor="#E5C158"
+        android:pathData="M44,74 L64,74 L64,78 L44,78 Z" />
+    <path
+        android:fillColor="#C5A059"
+        android:pathData="M38,78 L70,78 L70,83 L38,83 Z" />
+</vector>
