@@ -19,12 +19,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
+import com.example.ui.template.TemplateListDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -45,12 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.model.LegalDocument
 import com.example.ui.theme.ComplianceGreen
 import com.example.ui.theme.ComplianceRiskRed
@@ -68,8 +73,10 @@ fun DocumentListScreen(
     modifier: Modifier = Modifier
 ) {
     val documents by viewModel.documents.collectAsState()
+    val templates by viewModel.templates.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") }
+    var showTemplateDialog by remember { mutableStateOf(false) }
 
     val filterOptions = listOf("ALL", "CONTRACT", "MOTION", "BRIEF", "NDA")
 
@@ -82,6 +89,20 @@ fun DocumentListScreen(
                 doc.jurisdiction.contains(searchQuery, ignoreCase = true)
             matchesFilter && matchesSearch
         }
+    }
+
+    if (showTemplateDialog) {
+        TemplateListDialog(
+            templates = templates,
+            onDismiss = { showTemplateDialog = false },
+            onSelectTemplate = { template ->
+                viewModel.loadTemplateIntoDraft(template)
+                onOpenEditor()
+            },
+            onDeleteTemplate = { template ->
+                viewModel.deleteTemplate(template)
+            }
+        )
     }
 
     Scaffold(
@@ -161,6 +182,68 @@ fun DocumentListScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Document Templates Library Quick Access Card (Room DB)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showTemplateDialog = true }
+                    .border(1.dp, LegalCardBorder, RoundedCornerShape(12.dp))
+                    .testTag("open_templates_library_card"),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = LegalCardDark)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(LegalGoldAccent.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bookmark,
+                                contentDescription = null,
+                                tint = LegalGoldAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Legal Templates Library",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            )
+                            Text(
+                                text = "${templates.size} standard & custom templates (Room DB)",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF94A3B8))
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Browse >",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = LegalGoldAccent
+                        )
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
             if (filteredDocuments.isEmpty()) {
@@ -209,17 +292,41 @@ fun DocumentListScreen(
                         )
                         if (documents.isEmpty()) {
                             Spacer(modifier = Modifier.height(18.dp))
-                            androidx.compose.material3.Button(
-                                onClick = { viewModel.seedSampleDocumentIfEmpty() },
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = LegalGoldAccent,
-                                    contentColor = LegalNavyDark
-                                ),
-                                shape = RoundedCornerShape(8.dp)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.Gavel, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Load Sample NDA with Precedent Scan", fontWeight = FontWeight.Bold)
+                                androidx.compose.material3.Button(
+                                    onClick = { showTemplateDialog = true },
+                                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                        containerColor = LegalGoldAccent,
+                                        contentColor = LegalNavyDark
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("empty_state_browse_templates_btn")
+                                ) {
+                                    Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("From Template", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = { viewModel.seedSampleDocumentIfEmpty() },
+                                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color.White
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, LegalCardBorder),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("empty_state_sample_doc_btn")
+                                ) {
+                                    Icon(Icons.Default.Gavel, contentDescription = null, tint = LegalGoldAccent, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Load Sample", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
                         }
                     }

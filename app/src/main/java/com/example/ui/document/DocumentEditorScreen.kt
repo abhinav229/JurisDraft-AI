@@ -34,6 +34,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CompareArrows
@@ -41,6 +43,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import com.example.ui.template.TemplateListDialog
+import com.example.ui.template.SaveAsTemplateDialog
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
@@ -136,11 +140,14 @@ fun DocumentEditorScreen(
     val precedentScanState by viewModel.precedentScanState.collectAsState()
     val clauseState by viewModel.clauseDraftState.collectAsState()
     val exportPdfState by viewModel.exportPdfState.collectAsState()
+    val templates by viewModel.templates.collectAsState()
     val context = LocalContext.current
 
     var showAuditDialog by remember { mutableStateOf(false) }
     var showClauseDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
+    var showSaveTemplateDialog by remember { mutableStateOf(false) }
     var mobileSelectedTab by remember { mutableIntStateOf(0) } // 0: Editor, 1: AI Revisions Sidebar
     var pendingExportOptions by remember { mutableStateOf(LegalExportOptions()) }
 
@@ -159,6 +166,36 @@ fun DocumentEditorScreen(
 
     val pendingAlertCount = remember(precedentAlerts) {
         precedentAlerts.count { !it.isApplied }
+    }
+
+    if (showTemplateDialog) {
+        TemplateListDialog(
+            templates = templates,
+            onDismiss = { showTemplateDialog = false },
+            onSelectTemplate = { template ->
+                viewModel.loadTemplateIntoDraft(template)
+            },
+            onDeleteTemplate = { template ->
+                viewModel.deleteTemplate(template)
+            },
+            onOpenSaveCurrentDialog = {
+                showTemplateDialog = false
+                showSaveTemplateDialog = true
+            }
+        )
+    }
+
+    if (showSaveTemplateDialog) {
+        SaveAsTemplateDialog(
+            initialTitle = draftTitle,
+            initialDocType = draftDocType,
+            initialJurisdiction = draftJurisdiction,
+            onDismiss = { showSaveTemplateDialog = false },
+            onConfirmSave = { title, docType, jurisdiction, desc ->
+                viewModel.saveCurrentDraftAsTemplate(title, docType, jurisdiction, desc)
+                showSaveTemplateDialog = false
+            }
+        )
     }
 
     if (showAuditDialog) {
@@ -293,7 +330,9 @@ fun DocumentEditorScreen(
                         jurisdiction = draftJurisdiction,
                         onInsertClause = { viewModel.insertDraftedClauseIntoContent(it) },
                         onOpenAiClauseDrafter = { showClauseDialog = true },
-                        onExportPdf = { showExportDialog = true }
+                        onExportPdf = { showExportDialog = true },
+                        onOpenTemplates = { showTemplateDialog = true },
+                        onSaveAsTemplate = { showSaveTemplateDialog = true }
                     )
 
                     LegalDraftTextArea(
@@ -314,6 +353,8 @@ fun DocumentEditorScreen(
                         },
                         onScanPrecedents = { viewModel.scanForPrecedentUpdates() },
                         onExportPdf = { showExportDialog = true },
+                        onOpenTemplates = { showTemplateDialog = true },
+                        onSaveAsTemplate = { showSaveTemplateDialog = true },
                         onDelete = if (selectedDoc != null && selectedDoc!!.id.isNotBlank()) {
                             { viewModel.deleteDocument(selectedDoc!!.id) }
                         } else null,
@@ -441,7 +482,9 @@ fun DocumentEditorScreen(
                             jurisdiction = draftJurisdiction,
                             onInsertClause = { viewModel.insertDraftedClauseIntoContent(it) },
                             onOpenAiClauseDrafter = { showClauseDialog = true },
-                            onExportPdf = { showExportDialog = true }
+                            onExportPdf = { showExportDialog = true },
+                            onOpenTemplates = { showTemplateDialog = true },
+                            onSaveAsTemplate = { showSaveTemplateDialog = true }
                         )
 
                         LegalDraftTextArea(
@@ -506,6 +549,8 @@ fun DocumentEditorScreen(
                             },
                             onScanPrecedents = { viewModel.scanForPrecedentUpdates() },
                             onExportPdf = { showExportDialog = true },
+                            onOpenTemplates = { showTemplateDialog = true },
+                            onSaveAsTemplate = { showSaveTemplateDialog = true },
                             onDelete = if (selectedDoc != null && selectedDoc!!.id.isNotBlank()) {
                                 { viewModel.deleteDocument(selectedDoc!!.id) }
                             } else null,
@@ -1467,6 +1512,8 @@ fun QuickClauseToolbar(
     onInsertClause: (String) -> Unit,
     onOpenAiClauseDrafter: () -> Unit,
     onExportPdf: () -> Unit,
+    onOpenTemplates: () -> Unit,
+    onSaveAsTemplate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -1476,10 +1523,25 @@ fun QuickClauseToolbar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Quick Standard Clauses:",
+                text = "Quick Clauses & Templates:",
                 style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF94A3B8))
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                AssistChip(
+                    onClick = onOpenTemplates,
+                    label = { Text("Templates", color = LegalGoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Bookmark,
+                            contentDescription = null,
+                            tint = LegalGoldAccent,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(containerColor = LegalCardDark),
+                    border = BorderStroke(1.dp, LegalGoldAccent.copy(alpha = 0.8f)),
+                    modifier = Modifier.testTag("quick_open_templates_chip")
+                )
                 AssistChip(
                     onClick = onExportPdf,
                     label = { Text("Export PDF", color = LegalGoldAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
@@ -1497,7 +1559,7 @@ fun QuickClauseToolbar(
                 )
                 AssistChip(
                     onClick = onOpenAiClauseDrafter,
-                    label = { Text("AI Clause Studio", color = LegalGoldAccent, fontSize = 10.sp) },
+                    label = { Text("AI Studio", color = LegalGoldAccent, fontSize = 10.sp) },
                     leadingIcon = {
                         Icon(
                             Icons.Default.AutoAwesome,
@@ -1520,6 +1582,13 @@ fun QuickClauseToolbar(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            AssistChip(
+                onClick = onSaveAsTemplate,
+                label = { Text("+ Save Draft as Template", color = LegalGoldAccent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                colors = AssistChipDefaults.assistChipColors(containerColor = LegalNavyPrimary),
+                border = BorderStroke(1.dp, LegalGoldAccent.copy(alpha = 0.5f)),
+                modifier = Modifier.testTag("save_as_template_chip")
+            )
             AssistChip(
                 onClick = {
                     onInsertClause("SEVERABILITY: If any provision of this Agreement is held to be invalid, illegal, or unenforceable under controlling statutory authority or precedent, such provision shall be severed, and the remaining provisions shall remain in full force and effect.")
@@ -1557,7 +1626,7 @@ fun QuickClauseToolbar(
 }
 
 /**
- * Editor Actions Bar (Save, Run Audit, Scan Precedents, Delete)
+ * Editor Actions Bar (Save, Run Audit, Scan Precedents, Delete, Templates)
  */
 @Composable
 fun EditorActionsBar(
@@ -1565,6 +1634,8 @@ fun EditorActionsBar(
     onRunAudit: () -> Unit,
     onScanPrecedents: () -> Unit,
     onExportPdf: () -> Unit,
+    onOpenTemplates: () -> Unit,
+    onSaveAsTemplate: () -> Unit,
     onDelete: (() -> Unit)?,
     isAuditLoading: Boolean,
     isPrecedentLoading: Boolean,
@@ -1607,6 +1678,42 @@ fun EditorActionsBar(
                 Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Export PDF", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Templates Row: Load Template & Save as Template (Room)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onOpenTemplates,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .testTag("open_templates_button"),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LegalGoldAccent),
+                border = BorderStroke(1.dp, LegalGoldAccent.copy(alpha = 0.8f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Load Template", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            OutlinedButton(
+                onClick = onSaveAsTemplate,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .testTag("save_as_template_button"),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = BorderStroke(1.dp, LegalCardBorder),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.BookmarkAdd, contentDescription = null, tint = LegalGoldAccent, modifier = Modifier.size(17.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Save as Template", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 

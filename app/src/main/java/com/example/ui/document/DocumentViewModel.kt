@@ -10,6 +10,8 @@ import com.example.data.model.ComplianceAuditReport
 import com.example.data.model.LegalDocument
 import com.example.data.model.PrecedentAlert
 import com.example.data.model.WatchedDoctrine
+import com.example.data.local.entity.DocumentTemplateEntity
+import com.example.data.repository.DocumentTemplateRepository
 import com.example.data.repository.LegalDocumentRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +40,21 @@ sealed interface UiState<out T> {
 class DocumentViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: LegalDocumentRepository = LegalDocumentRepository(application),
-    private val aiService: LegalAiService = LegalAiService()
+    private val aiService: LegalAiService = LegalAiService(),
+    private val templateRepository: DocumentTemplateRepository = DocumentTemplateRepository(application)
 ) : AndroidViewModel(application) {
+
+    // Observable templates from local Room database
+    val templates: StateFlow<List<DocumentTemplateEntity>> = templateRepository.allTemplates
+        .catch { error ->
+            Log.e(TAG, "Error observing local document templates from Room", error)
+            emit(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
 
     // Observable documents from Firestore
     val documents: StateFlow<List<LegalDocument>> = repository.observeDocuments()
@@ -176,6 +191,67 @@ class DocumentViewModel @JvmOverloads constructor(
                 isApplied = false
             )
         )
+
+        // Seed local Room database templates if needed
+        viewModelScope.launch {
+            templateRepository.seedDefaultsIfEmpty()
+        }
+    }
+
+    fun loadTemplateIntoDraft(template: DocumentTemplateEntity) {
+        _selectedDocument.value = null
+        _draftTitle.value = template.title
+        _draftDocType.value = template.docType
+        _draftJurisdiction.value = template.jurisdiction
+        _draftMatterRef.value = "MAT-${System.currentTimeMillis() % 100000}"
+        _draftContent.value = template.content
+        _auditState.value = UiState.Idle
+        _userMessage.value = "Loaded template: ${template.title}"
+    }
+
+    fun saveCurrentDraftAsTemplate(
+        title: String,
+        docType: String = _draftDocType.value,
+        jurisdiction: String = _draftJurisdiction.value,
+        description: String = ""
+    ) {
+        val content = _draftContent.value
+        if (content.isBlank()) {
+            _userMessage.value = "Cannot save empty draft as template"
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val newTemplate = DocumentTemplateEntity(
+                    title = title.ifBlank { _draftTitle.value.ifBlank { "Custom Template" } },
+                    docType = docType,
+                    jurisdiction = jurisdiction,
+                    description = description.ifBlank {
+                        "Custom template created on ${java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.US).format(java.util.Date())}"
+                    },
+                    content = content,
+                    isBuiltIn = false
+                )
+                templateRepository.saveTemplate(newTemplate)
+                _userMessage.value = "Saved '${newTemplate.title}' to local templates library"
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save template", e)
+                _userMessage.value = "Failed to save template: ${e.message}"
+            }
+        }
+    }
+
+    fun deleteTemplate(template: DocumentTemplateEntity) {
+        viewModelScope.launch {
+            try {
+                templateRepository.deleteTemplate(template)
+                _userMessage.value = "Deleted template '${template.title}'"
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete template", e)
+                _userMessage.value = "Failed to delete template: ${e.message}"
+            }
+        }
     }
 
     fun clearUserMessage() {
